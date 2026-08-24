@@ -1,4 +1,5 @@
 import asyncio
+import os
 import pytest
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
@@ -7,7 +8,10 @@ from src.database import Base
 import src.models
 
 
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+TEST_DATABASE_URL = os.getenv(
+    "TEST_DATABASE_URL",
+    "postgresql+asyncpg://postgres:postgres@localhost:5432/test_db"
+)
 
 
 @pytest.fixture(scope="session")
@@ -20,13 +24,10 @@ def event_loop():
 
 @pytest.fixture(scope="session")
 async def async_engine():
-    """Initialize a single async database engine instance for the test session."""
+    """Initialize a single async PostgreSQL database engine instance for the test session."""
     engine = create_async_engine(
         TEST_DATABASE_URL,
-        connect_args=
-        {
-            "check_same_thread": False
-        }
+        echo=False
     )
 
     async with engine.begin() as conn:
@@ -42,7 +43,7 @@ async def async_engine():
 async def db_session(async_engine) -> AsyncGenerator[AsyncSession, None]:
     """
     Provide an isolated AsyncSession wrapper for each test case.
-    Executes a strict transactional ROLLBACK after every test to maintain state purity.
+    Executes a strict transactional ROLLBACK after every test to maintain database purity.
     """
     async_session_factory = async_sessionmaker(
         bind=async_engine,
